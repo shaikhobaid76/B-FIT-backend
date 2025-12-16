@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require('../models/user');
 const Streak = require('../models/Streak');
 
 // Register User
