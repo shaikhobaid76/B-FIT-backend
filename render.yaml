@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: b-fit-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://BFIT:Ozain%402425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://b-fit-gym.vercel.app
+      - key: PORT
+        value: 5000
+    healthCheckPath: /api/health
+    autoDeploy: true
