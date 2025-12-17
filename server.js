@@ -266,7 +266,7 @@ const server = app.listen(PORT, () => {
     ║  • POST /api/login               User login                    ║
     ║  • GET  /api/all-data            Get all user data             ║
     ║  • POST /api/streak/update       Update streak                 ║
-    ║  • GET  /api/streak/:userId      Get user streak               ║
+    ║  • GET  /api/streak/:userId      Get user  streak               ║
     ║                                                                  ║
     ╚══════════════════════════════════════════════════════════════════╝
     `);
