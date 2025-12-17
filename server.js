@@ -19,41 +19,85 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ======================
-// MONGODB CONNECTION (WITH UPDATED PASSWORD)
+// MONGODB CONNECTION (WITH YOUR EXACT CONNECTION STRING)
 // ======================
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority';
+// Using your EXACT MongoDB Atlas connection string
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/?appName=Cluster0';
 
 console.log('🔗 Connecting to MongoDB Atlas...');
 console.log('📁 Database Name: bfit-app');
 console.log('👤 Username: BFIT');
 console.log('🔑 Password: Ozain2425');
+console.log('🔗 Connection String:', MONGODB_URI.replace(/:([^:@]+)@/, ':****@'));
 
-mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 10000, // 10 seconds
-    socketTimeoutMS: 45000, // 45 seconds
-})
-.then(() => {
-    console.log('✅ MongoDB Atlas Connected Successfully!');
-    console.log('📊 Connected to database:', mongoose.connection.db.databaseName);
-    console.log('👤 Connection User:', mongoose.connection.user || 'Not specified');
-})
-.catch(err => {
-    console.log('❌ MongoDB Connection FAILED!');
-    console.log('📌 Error Message:', err.message);
-    console.log('🔍 Full Error:', err);
-    console.log('🔍 Connection String Being Used:', MONGODB_URI.replace(/:(.*)@/, ':****@'));
-    console.log('\n🔧 Troubleshooting Steps:');
-    console.log('1. ✅ Check MongoDB Atlas username/password');
-    console.log('2. ✅ Verify IP Whitelist (0.0.0.0/0)');
-    console.log('3. ✅ Check network connectivity');
-    console.log('4. ✅ Verify connection string format');
-    console.log('5. ✅ Ensure database "bfit-app" exists');
-    console.log('6. ✅ Check if cluster is active and running');
-    
-    // Don't exit, continue without DB for now
-});
+// Try connecting with two different connection string formats
+async function connectToMongoDB() {
+    try {
+        console.log('\n🔄 Trying to connect to MongoDB Atlas...');
+        
+        // Try with YOUR connection string first
+        await mongoose.connect(MONGODB_URI, {
+            dbName: 'bfit-app', // Explicitly specify database name
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+        });
+        
+        console.log('✅ MongoDB Atlas Connected Successfully!');
+        console.log('📊 Connected to database:', mongoose.connection.db.databaseName);
+        console.log('👤 Connection User:', mongoose.connection.user || 'Not specified');
+        
+    } catch (err) {
+        console.log('❌ First connection attempt failed:', err.message);
+        
+        // Try alternative connection string format
+        const alternativeURI = 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority&appName=Cluster0';
+        console.log('\n🔄 Trying alternative connection string...');
+        
+        try {
+            await mongoose.connect(alternativeURI, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 10000,
+                socketTimeoutMS: 45000,
+            });
+            
+            console.log('✅ MongoDB Atlas Connected Successfully with alternative string!');
+            console.log('📊 Connected to database:', mongoose.connection.db.databaseName);
+            
+        } catch (secondErr) {
+            console.log('❌ Alternative connection also failed:', secondErr.message);
+            console.log('\n🔧 Troubleshooting Steps:');
+            console.log('1. ✅ Check MongoDB Atlas username/password');
+            console.log('2. ✅ Verify IP Whitelist (0.0.0.0/0)');
+            console.log('3. ✅ Check if "bfit-app" database exists');
+            console.log('4. 🔍 Your connection string:', MONGODB_URI);
+            console.log('5. 🔍 Alternative tried:', alternativeURI);
+            
+            // Try one more format - the standard one
+            console.log('\n🔄 Trying third connection format...');
+            try {
+                const thirdURI = 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app';
+                await mongoose.connect(thirdURI, {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                    serverSelectionTimeoutMS: 10000,
+                    socketTimeoutMS: 45000,
+                });
+                
+                console.log('✅ Connected with third format!');
+                
+            } catch (thirdErr) {
+                console.log('❌ All connection attempts failed');
+                console.log('💡 Please check your MongoDB Atlas configuration');
+            }
+        }
+    }
+}
+
+// Connect to MongoDB
+connectToMongoDB();
 
 // MongoDB Connection Events
 mongoose.connection.on('error', err => {
@@ -302,14 +346,12 @@ app.get('/', (req, res) => {
                     <div class="status-box">
                         <strong>Status:</strong> ${dbStatusText}<br>
                         <strong>Database:</strong> bfit-app<br>
-                        <strong>Connection State:</strong> ${dbStatus}
+                        <strong>Connection State:</strong> ${dbStatus}<br>
+                        <strong>Connection String:</strong> mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/?appName=Cluster0
                     </div>
                     
                     <strong>Environment:</strong>
                     <div class="url-box">${process.env.NODE_ENV || 'development'}</div>
-                    
-                    <strong>MongoDB Connection:</strong>
-                    <div class="url-box">mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/bfit-app</div>
                 </div>
                 
                 <div class="api-section">
@@ -403,9 +445,9 @@ app.get('/api/health', (req, res) => {
         uptime: process.uptime(),
         database: {
             status: dbMessage,
-            name: 'MongoDB Atlas',
+            name: 'bfit-app',
             connectionState: dbStatus,
-            uri: 'mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/bfit-app',
+            uri: 'mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/?appName=Cluster0',
             cluster: 'cluster0.1sifp5t.mongodb.net'
         },
         environment: process.env.NODE_ENV || 'development',
@@ -418,10 +460,6 @@ app.get('/api/health', (req, res) => {
             rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)} MB`,
             heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)} MB`,
             heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`
-        },
-        mongodb: {
-            password_updated: true,
-            password_format: 'Ozain2425'
         }
     });
 });
@@ -440,8 +478,14 @@ app.get('/api/test', async (req, res) => {
                     connected: false,
                     error: 'MongoDB not connected',
                     connection_state: mongoose.connection.readyState,
-                    connection_string: 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app'
-                }
+                    connection_string: 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/?appName=Cluster0'
+                },
+                troubleshooting: [
+                    'Check if "bfit-app" database exists in MongoDB Atlas',
+                    'Verify password is correct',
+                    'Check IP whitelist settings',
+                    'Try connecting manually with MongoDB Compass'
+                ]
             });
         }
         
@@ -484,7 +528,7 @@ app.get('/api/test', async (req, res) => {
                 version: '2.0.0',
                 environment: process.env.NODE_ENV || 'development',
                 timestamp: new Date().toISOString(),
-                mongodb_password: 'Ozain2425'
+                mongodb_connection: 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/?appName=Cluster0'
             },
             database: {
                 connected: true,
@@ -528,7 +572,8 @@ app.get('/api/test', async (req, res) => {
             database: {
                 connected: false,
                 error: error.message,
-                stack: error.stack
+                connection_string: 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/?appName=Cluster0',
+                db_name: 'bfit-app'
             }
         });
     }
@@ -615,6 +660,7 @@ const server = app.listen(PORT, () => {
     ║  💻 Developer:       OBAIDULLAH SHAIKH                          ║
     ║  📅 Started:         ${new Date().toLocaleDateString()}          ║
     ║  🔧 MongoDB:         Password Updated to Ozain2425              ║
+    ║  🔗 Connection:      mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/?appName=Cluster0 ║
     ║                                                                  ║
     ╚══════════════════════════════════════════════════════════════════╝
     `);
@@ -623,7 +669,8 @@ const server = app.listen(PORT, () => {
     console.log('\n🔍 Additional Information:');
     console.log('📁 Database Name:', mongoose.connection.db?.databaseName || 'Not connected');
     console.log('👤 MongoDB Username:', 'BFIT');
-    console.log('🔐 MongoDB Password:', 'Ozain2425 (Updated)');
+    console.log('🔐 MongoDB Password:', 'Ozain2425');
+    console.log('🔗 Connection String:', 'mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/?appName=Cluster0');
     console.log('🌐 Environment:', process.env.NODE_ENV || 'development');
     console.log('💾 Memory Usage:', Math.round(process.memoryUsage().rss / 1024 / 1024), 'MB');
 });
