@@ -15,20 +15,15 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ======================
-// MONGODB CONNECTION - FIXED
+// MONGODB CONNECTION
 // ======================
-// ✅ CORRECT CONNECTION STRING - NO appName parameter
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority';
 
-console.log('🔗 =========== MONGODB CONNECTION DEBUG ===========');
-console.log('🔗 Connection string:', MONGODB_URI);
-console.log('🔗 From .env file?', process.env.MONGODB_URI ? 'YES' : 'NO - using default');
-console.log('🔗 ================================================');
+console.log('🔗 Connecting to MongoDB Atlas...');
 
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
@@ -39,7 +34,6 @@ mongoose.connect(MONGODB_URI, {
 .then(() => {
     console.log('✅ MongoDB Atlas Connected Successfully!');
     console.log(`📊 Connected to Database: "${mongoose.connection.db.databaseName}"`);
-    console.log(`📊 Connection State: ${mongoose.connection.readyState === 1 ? '✅ CONNECTED' : '❌ DISCONNECTED'}`);
     
     // Test if we can access collections
     mongoose.connection.db.listCollections().toArray((err, collections) => {
@@ -47,117 +41,26 @@ mongoose.connect(MONGODB_URI, {
             console.error('❌ Error listing collections:', err);
         } else {
             console.log('📋 Available collections:', collections.map(c => c.name).join(', ') || 'No collections found');
-            
-            // If no collections, create them
-            if (collections.length === 0) {
-                console.log('⚠️ No collections found. Creating default collections...');
-                
-                // Create User model if doesn't exist
-                if (!mongoose.models.User) {
-                    const userSchema = new mongoose.Schema({
-                        name: { type: String, required: true },
-                        phone: { type: String, required: true, unique: true },
-                        password: { type: String, required: true },
-                        gender: { type: String, required: true },
-                        age: { type: Number, min: 10, max: 100 },
-                        createdAt: { type: Date, default: Date.now }
-                    });
-                    mongoose.model('User', userSchema);
-                    console.log('✅ Created User model');
-                }
-                
-                // Create Streak model if doesn't exist
-                if (!mongoose.models.Streak) {
-                    const streakSchema = new mongoose.Schema({
-                        userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-                        currentStreak: { type: Number, default: 0 },
-                        highestStreak: { type: Number, default: 0 },
-                        lastWorkoutDate: { type: Date },
-                        workoutCount: { type: Number, default: 0 }
-                    });
-                    mongoose.model('Streak', streakSchema);
-                    console.log('✅ Created Streak model');
-                }
-            }
         }
     });
 })
 .catch(err => {
     console.error('❌ MongoDB Connection Error:', err.message);
-    console.error('❌ Full error details:', err);
 });
 
 // ======================
-// DATABASE DEBUG ENDPOINT
+// DEBUG: CHECK AUTH ROUTES LOADING
 // ======================
-app.get('/api/debug-db', async (req, res) => {
-    try {
-        const dbName = mongoose.connection.db?.databaseName || 'Not connected';
-        const readyState = mongoose.connection.readyState;
-        
-        // Try to get collections count
-        let collections = [];
-        let usersCount = 0;
-        let streaksCount = 0;
-        
-        if (readyState === 1) { // Connected
-            collections = await mongoose.connection.db.listCollections().toArray();
-            
-            // Try to count documents if models exist
-            try {
-                const User = mongoose.model('User');
-                usersCount = await User.countDocuments();
-            } catch (e) {
-                usersCount = 'Model not initialized';
-            }
-            
-            try {
-                const Streak = mongoose.model('Streak');
-                streaksCount = await Streak.countDocuments();
-            } catch (e) {
-                streaksCount = 'Model not initialized';
-            }
-        }
-        
-        res.json({
-            success: true,
-            timestamp: new Date().toISOString(),
-            database: {
-                name: dbName,
-                readyState: readyState,
-                stateDescription: readyState === 1 ? 'Connected' : 
-                                 readyState === 0 ? 'Disconnected' :
-                                 readyState === 2 ? 'Connecting' : 'Disconnecting'
-            },
-            collections: {
-                count: collections.length,
-                names: collections.map(c => c.name),
-                users: usersCount,
-                streaks: streaksCount
-            },
-            connection: {
-                host: mongoose.connection.host,
-                port: mongoose.connection.port,
-                mongodbUri: process.env.MONGODB_URI ? 'Set in environment' : 'Using default'
-            },
-            server: {
-                version: '2.0',
-                uptime: process.uptime()
-            }
-        });
-        
-    } catch (error) {
-        console.error('Debug endpoint error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message,
-            stack: process.env.NODE_ENV === 'production' ? undefined : error.stack
-        });
-    }
-});
+console.log('🔧 DEBUG: Loading authRoutes...');
+try {
+    const authRoutesModule = require('./routes/authRoutes');
+    console.log('✅ authRoutes loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading authRoutes:', error.message);
+}
 
 // ======================
-// HEALTH CHECK ROUTES
+// HEALTH CHECK ROUTES (DEFINED BEFORE MAIN API ROUTES)
 // ======================
 app.get('/api/health', (req, res) => {
     const dbStatus = mongoose.connection.readyState;
@@ -191,8 +94,6 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/test', async (req, res) => {
     try {
-        const dbName = mongoose.connection.db?.databaseName;
-        
         // Try to get User model
         let User, Streak;
         try {
@@ -201,7 +102,7 @@ app.get('/api/test', async (req, res) => {
         } catch (e) {
             return res.status(500).json({
                 status: 'error',
-                message: 'Database models not initialized. Check MongoDB connection.',
+                message: 'Database models not initialized',
                 error: e.message
             });
         }
@@ -212,7 +113,7 @@ app.get('/api/test', async (req, res) => {
         res.status(200).json({
             status: 'success',
             message: 'Database connection test successful',
-            database: dbName || 'Unknown',
+            database: mongoose.connection.db?.databaseName || 'Unknown',
             usersCount: users.length,
             streaksCount: streaks.length,
             users: users.map(user => ({
@@ -237,14 +138,13 @@ app.get('/api/test', async (req, res) => {
         res.status(500).json({ 
             status: 'error', 
             message: 'Database test failed',
-            error: error.message,
-            database: mongoose.connection.db?.databaseName || 'Not connected'
+            error: error.message
         });
     }
 });
 
 // ======================
-// MAIN API ROUTES
+// MAIN API ROUTES (MUST COME AFTER SPECIFIC ROUTES)
 // ======================
 app.use('/api', authRoutes);
 
@@ -341,9 +241,6 @@ app.get('/', (req, res) => {
                     <span class="method">GET</span> /api/health - Health check
                 </div>
                 <div class="endpoint">
-                    <span class="method">GET</span> /api/debug-db - Database debug info
-                </div>
-                <div class="endpoint">
                     <span class="method">GET</span> /api/test - Database test
                 </div>
                 <div class="endpoint">
@@ -363,8 +260,6 @@ app.get('/', (req, res) => {
                 </div>
                 
                 <div style="margin-top: 30px; text-align: center;">
-                    <a href="/api/debug-db" class="test-btn">Test Database Connection</a>
-                    &nbsp;&nbsp;
                     <a href="/api/health" class="test-btn">Check Health</a>
                 </div>
                 
@@ -379,7 +274,7 @@ app.get('/', (req, res) => {
 });
 
 // ======================
-// 404 HANDLER (MUST BE LAST!)
+// 404 HANDLER (MUST BE ABSOLUTELY LAST!)
 // ======================
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -388,7 +283,6 @@ app.use('*', (req, res) => {
         available_endpoints: [
             'GET /',
             'GET /api/health',
-            'GET /api/debug-db',
             'GET /api/test',
             'POST /api/register',
             'POST /api/login',
@@ -440,7 +334,6 @@ const server = app.listen(PORT, () => {
     ║                                                                  ║
     ║  📡 API ENDPOINTS:                                              ║
     ║  • GET  /api/health              Health check                   ║
-    ║  • GET  /api/debug-db            Database debug info            ║
     ║  • GET  /api/test                Database test                  ║
     ║  • POST /api/register            User registration             ║
     ║  • POST /api/login               User login                    ║
