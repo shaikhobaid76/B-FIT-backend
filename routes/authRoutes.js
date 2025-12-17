@@ -5,24 +5,23 @@ const authController = require('../controllers/authController');
 // Health Check
 router.get('/health', (req, res) => {
     res.json({ 
-        status: 'OK', 
+        success: true, 
         message: 'B-FIT Server is running',
         timestamp: new Date().toISOString(),
         version: '2.0',
         deployment: {
-            frontend: 'https://b-fit-gym.vercel.app',       // ✅ YOUR VERCEL FRONTEND
-            backend: 'https://b-fit-backend-jy2e.onrender.com',  // ✅ YOUR RENDER BACKEND (AFTER DEPLOY)
+            frontend: 'https://b-fit-gym.vercel.app',
+            backend: 'https://b-fit-backend-jy2e.onrender.com',
             database: 'MongoDB Atlas'
         }
     });
 });
 
 // Auth Routes
-router.post('/auth/register', authController.register);
-router.post('/auth/login', authController.login);
+router.post('/register', authController.register);
+router.post('/login', authController.login);
 
-// Streak Routes
-router.post('/streak/update', authController.updateStreak);
+// Streak Routes (Simple get)
 router.get('/streak/:userId', authController.getStreak);
 
 // Test Route
