@@ -1,25 +1,42 @@
+const mongoose = require('mongoose');
 const User = require('../models/user');
-// const Streak = require('../models/Streak');
 const bcrypt = require('bcryptjs');
 
-// ✅ YEH ADD KARO:
+// Get Streak model - SIMPLE VERSION
 let Streak;
 try {
     Streak = mongoose.model('Streak');
-} catch {
+} catch (error) {
     // Create Streak model if doesn't exist
     const streakSchema = new mongoose.Schema({
-        userId: { type: mongoose.Schema.Types.ObjectId, required: true },
-        currentStreak: { type: Number, default: 0 },
-        highestStreak: { type: Number, default: 0 },
-        lastWorkoutDate: { type: Date },
-        workoutCount: { type: Number, default: 0 }
+        userId: { 
+            type: mongoose.Schema.Types.ObjectId, 
+            required: true,
+            ref: 'User'
+        },
+        currentStreak: { 
+            type: Number, 
+            default: 0 
+        },
+        highestStreak: { 
+            type: Number, 
+            default: 0 
+        },
+        lastWorkoutDate: { 
+            type: Date 
+        },
+        workoutCount: { 
+            type: Number, 
+            default: 0 
+        },
+        createdAt: { 
+            type: Date, 
+            default: Date.now 
+        }
     });
+    
     Streak = mongoose.model('Streak', streakSchema);
 }
-
-const bcrypt = require('bcryptjs');
-
 
 // ===============================
 // REGISTER USER
@@ -183,7 +200,7 @@ exports.login = async (req, res) => {
 };
 
 // ===============================
-// UPDATE STREAK (MISSING FUNCTION - ADDED)
+// UPDATE STREAK
 // ===============================
 exports.updateStreak = async (req, res) => {
     try {
