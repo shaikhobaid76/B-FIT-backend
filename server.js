@@ -19,12 +19,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ======================
-// MONGODB CONNECTION
+// MONGODB CONNECTION (WITH UPDATED PASSWORD)
 // ======================
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain%402425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority';
 
 console.log('🔗 Connecting to MongoDB Atlas...');
 console.log('📁 Database Name: bfit-app');
+console.log('👤 Username: BFIT');
+console.log('🔑 Password: Ozain2425');
 
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
@@ -40,11 +42,15 @@ mongoose.connect(MONGODB_URI, {
 .catch(err => {
     console.log('❌ MongoDB Connection FAILED!');
     console.log('📌 Error Message:', err.message);
-    console.log('🔍 Troubleshooting Steps:');
-    console.log('1. Check MongoDB Atlas username/password');
-    console.log('2. Verify IP Whitelist (0.0.0.0/0)');
-    console.log('3. Check network connectivity');
-    console.log('4. Verify connection string format');
+    console.log('🔍 Full Error:', err);
+    console.log('🔍 Connection String Being Used:', MONGODB_URI.replace(/:(.*)@/, ':****@'));
+    console.log('\n🔧 Troubleshooting Steps:');
+    console.log('1. ✅ Check MongoDB Atlas username/password');
+    console.log('2. ✅ Verify IP Whitelist (0.0.0.0/0)');
+    console.log('3. ✅ Check network connectivity');
+    console.log('4. ✅ Verify connection string format');
+    console.log('5. ✅ Ensure database "bfit-app" exists');
+    console.log('6. ✅ Check if cluster is active and running');
     
     // Don't exit, continue without DB for now
 });
@@ -75,6 +81,17 @@ app.use('/api', authRoutes);
 app.get('/', (req, res) => {
     const frontendURL = 'https://b-fit-gym.vercel.app';
     const backendURL = 'https://b-fit-backend-jy2e.onrender.com';
+    const dbStatus = mongoose.connection.readyState;
+    let dbStatusText = '';
+    let dbStatusColor = '';
+    
+    switch(dbStatus) {
+        case 0: dbStatusText = '❌ DISCONNECTED'; dbStatusColor = '#ff4444'; break;
+        case 1: dbStatusText = '✅ CONNECTED'; dbStatusColor = '#00ff88'; break;
+        case 2: dbStatusText = '🔄 CONNECTING'; dbStatusColor = '#ffaa00'; break;
+        case 3: dbStatusText = '⚠️ DISCONNECTING'; dbStatusColor = '#ffaa00'; break;
+        default: dbStatusText = '❓ UNKNOWN'; dbStatusColor = '#888888';
+    }
     
     res.send(`
         <!DOCTYPE html>
@@ -160,6 +177,15 @@ app.get('/', (req, res) => {
                     font-family: 'Courier New', monospace;
                     word-break: break-all;
                     border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+                
+                .status-box {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 15px;
+                    border-radius: 10px;
+                    margin: 15px 0;
+                    font-family: 'Courier New', monospace;
+                    border-left: 4px solid ${dbStatusColor};
                 }
                 
                 .api-section {
@@ -273,12 +299,17 @@ app.get('/', (req, res) => {
                     <div class="url-box">${backendURL}</div>
                     
                     <strong>Database Status:</strong>
-                    <div class="url-box">
-                        ${mongoose.connection.readyState === 1 ? '✅ MongoDB Atlas Connected' : '⚠️ MongoDB Not Connected'}
+                    <div class="status-box">
+                        <strong>Status:</strong> ${dbStatusText}<br>
+                        <strong>Database:</strong> bfit-app<br>
+                        <strong>Connection State:</strong> ${dbStatus}
                     </div>
                     
                     <strong>Environment:</strong>
                     <div class="url-box">${process.env.NODE_ENV || 'development'}</div>
+                    
+                    <strong>MongoDB Connection:</strong>
+                    <div class="url-box">mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/bfit-app</div>
                 </div>
                 
                 <div class="api-section">
@@ -294,7 +325,7 @@ app.get('/', (req, res) => {
                             <span>User Login</span>
                             <span class="method">POST</span>
                         </div>
-                        <div class="url-box">${backendURL}/api/auth/login</span>
+                        <div class="url-box">${backendURL}/api/auth/login</div>
                         
                         <div class="api-item">
                             <span>Update Workout Streak</span>
@@ -307,6 +338,12 @@ app.get('/', (req, res) => {
                             <span class="method">GET</span>
                         </div>
                         <div class="url-box">${backendURL}/api/streak/:userId</div>
+                        
+                        <div class="api-item">
+                            <span>Get All Data</span>
+                            <span class="method">GET</span>
+                        </div>
+                        <div class="url-box">${backendURL}/api/auth/all-data</div>
                         
                         <div class="api-item">
                             <span>Health Check</span>
@@ -338,6 +375,7 @@ app.get('/', (req, res) => {
                     <p>Made with ❤️ by OBAIDULLAH SHAIKH</p>
                     <p>📧 Backend URL: ${backendURL}</p>
                     <p>🕐 Server Time: ${new Date().toLocaleString()}</p>
+                    <p>🔐 MongoDB Password: Updated to Ozain2425</p>
                 </div>
             </div>
         </body>
@@ -366,7 +404,9 @@ app.get('/api/health', (req, res) => {
         database: {
             status: dbMessage,
             name: 'MongoDB Atlas',
-            connectionState: dbStatus
+            connectionState: dbStatus,
+            uri: 'mongodb+srv://BFIT:****@cluster0.1sifp5t.mongodb.net/bfit-app',
+            cluster: 'cluster0.1sifp5t.mongodb.net'
         },
         environment: process.env.NODE_ENV || 'development',
         deployment: {
@@ -378,6 +418,10 @@ app.get('/api/health', (req, res) => {
             rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)} MB`,
             heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)} MB`,
             heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`
+        },
+        mongodb: {
+            password_updated: true,
+            password_format: 'Ozain2425'
         }
     });
 });
@@ -394,14 +438,40 @@ app.get('/api/test', async (req, res) => {
                 message: 'Database connection failed',
                 database: {
                     connected: false,
-                    error: 'MongoDB not connected'
+                    error: 'MongoDB not connected',
+                    connection_state: mongoose.connection.readyState,
+                    connection_string: 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app'
                 }
             });
         }
         
         // Try to fetch data from database
-        const User = mongoose.model('User');
-        const Streak = mongoose.model('Streak');
+        let User, Streak;
+        try {
+            // Try to get existing models
+            User = mongoose.model('User');
+            Streak = mongoose.model('Streak');
+        } catch (e) {
+            // If models don't exist, define them temporarily
+            const userSchema = new mongoose.Schema({
+                name: String,
+                phone: String,
+                password: String,
+                gender: String,
+                age: Number,
+                createdAt: { type: Date, default: Date.now }
+            });
+            User = mongoose.model('User', userSchema);
+            
+            const streakSchema = new mongoose.Schema({
+                userId: mongoose.Schema.Types.ObjectId,
+                currentStreak: Number,
+                highestStreak: Number,
+                workoutCount: Number,
+                lastWorkoutDate: Date
+            });
+            Streak = mongoose.model('Streak', streakSchema);
+        }
         
         const users = await User.find().limit(5);
         const streaks = await Streak.find().limit(5);
@@ -413,16 +483,31 @@ app.get('/api/test', async (req, res) => {
                 name: 'B-FIT Gym App API',
                 version: '2.0.0',
                 environment: process.env.NODE_ENV || 'development',
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                mongodb_password: 'Ozain2425'
             },
             database: {
                 connected: true,
                 name: mongoose.connection.db.databaseName,
+                collections: await mongoose.connection.db.listCollections().toArray(),
                 users: users.length,
                 streaks: streaks.length,
                 sampleData: {
-                    users: users.map(u => ({ id: u._id, name: u.name, phone: u.phone })),
-                    streaks: streaks.map(s => ({ userId: s.userId, streak: s.currentStreak }))
+                    users: users.map(u => ({ 
+                        id: u._id, 
+                        name: u.name, 
+                        phone: u.phone, 
+                        gender: u.gender, 
+                        age: u.age,
+                        createdAt: u.createdAt 
+                    })),
+                    streaks: streaks.map(s => ({ 
+                        userId: s.userId, 
+                        currentStreak: s.currentStreak, 
+                        highestStreak: s.highestStreak, 
+                        workoutCount: s.workoutCount,
+                        lastWorkoutDate: s.lastWorkoutDate 
+                    }))
                 }
             },
             endpoints: {
@@ -430,6 +515,7 @@ app.get('/api/test', async (req, res) => {
                 login: 'POST /api/auth/login',
                 updateStreak: 'POST /api/streak/update',
                 getStreak: 'GET /api/streak/:userId',
+                getAllData: 'GET /api/auth/all-data',
                 health: 'GET /api/health',
                 test: 'GET /api/test'
             }
@@ -441,7 +527,8 @@ app.get('/api/test', async (req, res) => {
             message: 'Database test failed: ' + error.message,
             database: {
                 connected: false,
-                error: error.message
+                error: error.message,
+                stack: error.stack
             }
         });
     }
@@ -459,7 +546,8 @@ app.use('*', (req, res) => {
             'POST /api/auth/register',
             'POST /api/auth/login',
             'POST /api/streak/update',
-            'GET /api/streak/:userId'
+            'GET /api/streak/:userId',
+            'GET /api/auth/all-data'
         ],
         documentation: 'https://b-fit-backend-jy2e.onrender.com/',
         support: 'Check the root route for API documentation'
@@ -473,7 +561,8 @@ app.use((err, req, res, next) => {
     res.status(500).json({
         status: 'error',
         message: 'Internal server error',
-        error: process.env.NODE_ENV === 'production' ? 'Something went wrong!' : err.message
+        error: process.env.NODE_ENV === 'production' ? 'Something went wrong!' : err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });
 });
 
@@ -486,6 +575,7 @@ const server = app.listen(PORT, () => {
     const frontendURL = 'https://b-fit-gym.vercel.app';
     const backendURL = `https://b-fit-backend-jy2e.onrender.com`;
     const localURL = `http://localhost:${PORT}`;
+    const dbStatus = mongoose.connection.readyState;
     
     console.log(`
     ╔══════════════════════════════════════════════════════════════════╗
@@ -496,7 +586,8 @@ const server = app.listen(PORT, () => {
     ║  ✅ Status:          SERVER STARTED SUCCESSFULLY                 ║
     ║  🔌 Port:            ${PORT}                                    ║
     ║  🕐 Time:            ${new Date().toLocaleTimeString()}          ║
-    ║  📊 Database:        ${mongoose.connection.readyState === 1 ? '✅ CONNECTED' : '⚠️ CHECKING...'} ║
+    ║  📊 Database:        ${dbStatus === 1 ? '✅ CONNECTED' : dbStatus === 0 ? '❌ DISCONNECTED' : '🔄 CONNECTING'} ║
+    ║  🔑 Password:        ✅ UPDATED TO Ozain2425                     ║
     ║                                                                  ║
     ║  🌐 DEPLOYMENT URLs:                                            ║
     ║                                                                  ║
@@ -510,20 +601,31 @@ const server = app.listen(PORT, () => {
     ║  • 🔓 Login:         POST ${backendURL}/api/auth/login          ║
     ║  • 📈 Update Streak: POST ${backendURL}/api/streak/update       ║
     ║  • 📊 Get Streak:    GET  ${backendURL}/api/streak/:userId      ║
+    ║  • 📋 All Data:      GET  ${backendURL}/api/auth/all-data       ║
     ║  • 💓 Health Check:  GET  ${backendURL}/api/health              ║
     ║  • 🧪 Test:          GET  ${backendURL}/api/test                ║
     ║                                                                  ║
     ║  🚀 QUICK TEST:                                                ║
     ║                                                                  ║
     ║  🔗 Health Check:    ${backendURL}/api/health                   ║
+    ║  🔗 Database Test:   ${backendURL}/api/test                     ║
     ║  🔗 Open Frontend:   ${frontendURL}                             ║
     ║  🔗 Open Backend:    ${backendURL}                              ║
     ║                                                                  ║
     ║  💻 Developer:       OBAIDULLAH SHAIKH                          ║
     ║  📅 Started:         ${new Date().toLocaleDateString()}          ║
+    ║  🔧 MongoDB:         Password Updated to Ozain2425              ║
     ║                                                                  ║
     ╚══════════════════════════════════════════════════════════════════╝
     `);
+    
+    // Log additional info
+    console.log('\n🔍 Additional Information:');
+    console.log('📁 Database Name:', mongoose.connection.db?.databaseName || 'Not connected');
+    console.log('👤 MongoDB Username:', 'BFIT');
+    console.log('🔐 MongoDB Password:', 'Ozain2425 (Updated)');
+    console.log('🌐 Environment:', process.env.NODE_ENV || 'development');
+    console.log('💾 Memory Usage:', Math.round(process.memoryUsage().rss / 1024 / 1024), 'MB');
 });
 
 // Graceful shutdown
@@ -536,4 +638,15 @@ process.on('SIGTERM', () => {
             process.exit(0);
         });
     });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    console.error('🔥 Uncaught Exception:', err);
+    console.log('🔄 Restarting server...');
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('🔥 Unhandled Rejection at:', promise, 'reason:', reason);
 });
