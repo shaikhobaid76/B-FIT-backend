@@ -2,7 +2,9 @@ const User = require('../models/user');
 const Streak = require('../models/Streak');
 const bcrypt = require('bcryptjs');
 
-// Register User
+// ===============================
+// REGISTER USER
+// ===============================
 exports.register = async (req, res) => {
     try {
         const { name, phone, password, gender, age } = req.body;
@@ -26,7 +28,7 @@ exports.register = async (req, res) => {
             });
         }
         
-        // ✅ FIX: Hash password before saving
+        // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         
@@ -34,7 +36,7 @@ exports.register = async (req, res) => {
         const user = new User({
             name,
             phone,
-            password: hashedPassword, // ✅ Use hashed password
+            password: hashedPassword,
             gender,
             age: age || null
         });
@@ -89,7 +91,9 @@ exports.register = async (req, res) => {
     }
 };
 
-// Login User
+// ===============================
+// LOGIN USER
+// ===============================
 exports.login = async (req, res) => {
     try {
         const { phone, password } = req.body;
@@ -114,7 +118,7 @@ exports.login = async (req, res) => {
             });
         }
         
-        // ✅ FIX: Compare hashed password
+        // Compare hashed password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         
         if (!isPasswordValid) {
@@ -159,7 +163,105 @@ exports.login = async (req, res) => {
     }
 };
 
-// Get User Streak
+// ===============================
+// UPDATE STREAK (MISSING FUNCTION - ADDED)
+// ===============================
+exports.updateStreak = async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        console.log('📈 Update streak request for userId:', userId);
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'User ID is required' 
+            });
+        }
+        
+        let streak = await Streak.findOne({ userId });
+        
+        if (!streak) {
+            // Create new streak
+            streak = new Streak({
+                userId,
+                currentStreak: 1,
+                highestStreak: 1,
+                lastWorkoutDate: new Date(),
+                workoutCount: 1
+            });
+            
+            await streak.save();
+            console.log('✅ New streak created:', streak);
+        } else {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (streak.lastWorkoutDate) {
+                const lastDate = new Date(streak.lastWorkoutDate);
+                lastDate.setHours(0, 0, 0, 0);
+                
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                // Check if already worked out today
+                if (lastDate.getTime() === today.getTime()) {
+                    return res.json({
+                        success: true,
+                        message: 'Already worked out today',
+                        streak: {
+                            currentStreak: streak.currentStreak,
+                            highestStreak: streak.highestStreak,
+                            workoutCount: streak.workoutCount
+                        }
+                    });
+                }
+                
+                // Check if worked out yesterday
+                if (lastDate.getTime() === yesterday.getTime()) {
+                    streak.currentStreak += 1;
+                } else {
+                    streak.currentStreak = 1;
+                }
+            } else {
+                streak.currentStreak = 1;
+            }
+            
+            // Update highest streak
+            if (streak.currentStreak > streak.highestStreak) {
+                streak.highestStreak = streak.currentStreak;
+            }
+            
+            streak.lastWorkoutDate = new Date();
+            streak.workoutCount += 1;
+            
+            await streak.save();
+            console.log('✅ Streak updated:', streak);
+        }
+        
+        res.json({
+            success: true,
+            message: 'Streak updated successfully',
+            streak: {
+                currentStreak: streak.currentStreak,
+                highestStreak: streak.highestStreak,
+                workoutCount: streak.workoutCount,
+                lastWorkoutDate: streak.lastWorkoutDate
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Streak Update Error:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Server error: ' + error.message
+        });
+    }
+};
+
+// ===============================
+// GET USER STREAK
+// ===============================
 exports.getStreak = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -202,10 +304,12 @@ exports.getStreak = async (req, res) => {
     }
 };
 
-// Get All Data
+// ===============================
+// GET ALL DATA
+// ===============================
 exports.getAllData = async (req, res) => {
     try {
-        const users = await User.find().select('-password'); // Don't return passwords
+        const users = await User.find().select('-password');
         const streaks = await Streak.find();
         
         console.log('📊 Total Users:', users.length);
