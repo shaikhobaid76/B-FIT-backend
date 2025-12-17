@@ -1,5 +1,5 @@
 const User = require('../models/user');
-const Streak = require('../models/Streak');
+// const Streak = require('../models/Streak');
 const bcrypt = require('bcryptjs');
 
 // ✅ YEH ADD KARO:
