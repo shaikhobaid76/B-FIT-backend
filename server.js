@@ -24,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://BFIT:Ozain2425@cluster0.1sifp5t.mongodb.net/bfit-app?retryWrites=true&w=majority&appName=Cluster0';
 
 console.log('🔗 Connecting to MongoDB Atlas...');
+console.log('🔍 Using connection string:', MONGODB_URI.substring(0, 40) + '...');
 
 mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
@@ -33,24 +34,90 @@ mongoose.connect(MONGODB_URI, {
 })
 .then(() => {
     console.log('✅ MongoDB Atlas Connected Successfully!');
-    console.log('📊 Database:', mongoose.connection.db.databaseName);
+    console.log('📊 Connected Database:', mongoose.connection.db.databaseName);
 })
 .catch(err => {
     console.error('❌ MongoDB Connection Error:', err.message);
 });
 
 // ======================
-// ROUTES CONFIGURATION
+// ROUTES CONFIGURATION - FIXED ORDER
 // ======================
 
-// ✅ CORRECT: Mount authRoutes under /api
+// 1. HEALTH CHECK ROUTES (FIRST)
+app.get('/api/health', (req, res) => {
+    const dbStatus = mongoose.connection.readyState;
+    let dbMessage = '';
+    
+    switch(dbStatus) {
+        case 0: dbMessage = '❌ Disconnected'; break;
+        case 1: dbMessage = '✅ Connected'; break;
+        case 2: dbMessage = '🔄 Connecting'; break;
+        case 3: dbMessage = '⚠️ Disconnecting'; break;
+        default: dbMessage = '❓ Unknown';
+    }
+    
+    res.status(200).json({
+        status: 'OK',
+        message: 'B-FIT Server is running',
+        timestamp: new Date().toISOString(),
+        version: '2.0',
+        database: {
+            status: dbMessage,
+            name: 'bfit-app',
+            connectionState: dbStatus
+        },
+        deployment: {
+            frontend: 'https://b-fit-gym.vercel.app',
+            backend: 'https://b-fit-backend-jy2e.onrender.com',
+            database: 'MongoDB Atlas'
+        }
+    });
+});
+
+app.get('/api/test', async (req, res) => {
+    try {
+        const User = mongoose.model('User');
+        const Streak = mongoose.model('Streak');
+        
+        const users = await User.find().limit(5);
+        const streaks = await Streak.find().limit(5);
+        
+        res.status(200).json({
+            status: 'success',
+            message: 'Database connection test successful',
+            database: 'bfit-app',
+            usersCount: users.length,
+            streaksCount: streaks.length,
+            users: users.map(user => ({
+                id: user._id,
+                name: user.name,
+                phone: user.phone,
+                gender: user.gender,
+                age: user.age,
+                createdAt: user.createdAt
+            })),
+            streaks: streaks.map(streak => ({
+                userId: streak.userId,
+                currentStreak: streak.currentStreak,
+                highestStreak: streak.highestStreak,
+                workoutCount: streak.workoutCount
+            }))
+        });
+        
+    } catch (error) {
+        console.error('❌ Test Error:', error.message);
+        res.status(500).json({ 
+            status: 'error', 
+            message: 'Server error: ' + error.message
+        });
+    }
+});
+
+// 2. MAIN API ROUTES
 app.use('/api', authRoutes);
 
-// ======================
-// HEALTH CHECK ROUTES
-// ======================
-
-// Root Route with deployment info
+// 3. ROOT ROUTE
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -133,79 +200,8 @@ app.get('/', (req, res) => {
     `);
 });
 
-// ✅ CORRECT: Health Check Route
-app.get('/api/health', (req, res) => {
-    const dbStatus = mongoose.connection.readyState;
-    let dbMessage = '';
-    
-    switch(dbStatus) {
-        case 0: dbMessage = '❌ Disconnected'; break;
-        case 1: dbMessage = '✅ Connected'; break;
-        case 2: dbMessage = '🔄 Connecting'; break;
-        case 3: dbMessage = '⚠️ Disconnecting'; break;
-        default: dbMessage = '❓ Unknown';
-    }
-    
-    res.status(200).json({
-        status: 'OK',
-        message: 'B-FIT Server is running',
-        timestamp: new Date().toISOString(),
-        version: '2.0',
-        database: {
-            status: dbMessage,
-            name: 'bfit-app',
-            connectionState: dbStatus
-        },
-        deployment: {
-            frontend: 'https://b-fit-gym.vercel.app',
-            backend: 'https://b-fit-backend-jy2e.onrender.com',
-            database: 'MongoDB Atlas'
-        }
-    });
-});
-
-// ✅ CORRECT: Test Route
-app.get('/api/test', async (req, res) => {
-    try {
-        const User = mongoose.model('User');
-        const Streak = mongoose.model('Streak');
-        
-        const users = await User.find().limit(5);
-        const streaks = await Streak.find().limit(5);
-        
-        res.status(200).json({
-            status: 'success',
-            message: 'Database connection test successful',
-            database: 'bfit-app',
-            usersCount: users.length,
-            streaksCount: streaks.length,
-            users: users.map(user => ({
-                id: user._id,
-                name: user.name,
-                phone: user.phone,
-                gender: user.gender,
-                age: user.age,
-                createdAt: user.createdAt
-            })),
-            streaks: streaks.map(streak => ({
-                userId: streak.userId,
-                currentStreak: streak.currentStreak,
-                highestStreak: streak.highestStreak,
-                workoutCount: streak.workoutCount
-            }))
-        });
-        
-    } catch (error) {
-        console.error('❌ Test Error:', error.message);
-        res.status(500).json({ 
-            status: 'error', 
-            message: 'Server error: ' + error.message
-        });
-    }
-});
-
 // ======================
-// 404 HANDLER
+// 404 HANDLER (MUST BE LAST!)
 // ======================
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -226,7 +222,7 @@ app.use('*', (req, res) => {
 });
 
 // ======================
-// ERROR HANDLER
+// ERROR HANDLER (MUST BE AFTER ALL ROUTES)
 // ======================
 app.use((err, req, res, next) => {
     console.error('🔥 Server Error:', err.stack);
