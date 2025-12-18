@@ -3,12 +3,16 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
     name: { 
         type: String, 
-        required: true 
+        required: true,
+        trim: true
     },
     phone: { 
         type: String, 
         required: true, 
-        unique: true 
+        unique: true,
+        trim: true,
+        minlength: 10,
+        maxlength: 10
     },
     password: { 
         type: String, 
@@ -16,11 +20,12 @@ const userSchema = new mongoose.Schema({
     },
     gender: { 
         type: String, 
-        required: true 
+        required: true,
+        enum: ['male', 'female', 'other']
     },
     age: { 
         type: Number, 
-        min: 10, 
+        min: 12, 
         max: 100 
     },
     createdAt: { 

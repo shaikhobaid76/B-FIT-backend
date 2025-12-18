@@ -4,7 +4,7 @@ const streakSchema = new mongoose.Schema({
     userId: { 
         type: mongoose.Schema.Types.ObjectId, 
         required: true,
-        ref: 'User'  // Reference to User model
+        ref: 'User'
     },
     currentStreak: { 
         type: Number, 
@@ -24,10 +24,17 @@ const streakSchema = new mongoose.Schema({
     createdAt: { 
         type: Date, 
         default: Date.now 
+    },
+    updatedAt: { 
+        type: Date, 
+        default: Date.now 
     }
 });
 
-// Create index for faster queries
 streakSchema.index({ userId: 1 });
+streakSchema.pre('save', function(next) {
+    this.updatedAt = Date.now();
+    next();
+});
 
 module.exports = mongoose.model('Streak', streakSchema);

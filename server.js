@@ -10,7 +10,7 @@ const app = express();
 // MIDDLEWARE CONFIGURATION
 // ======================
 app.use(cors({
-    origin: ['https://b-fit-gym.vercel.app', 'http://localhost:3000'],
+    origin: ['https://b-fit-gym.vercel.app', 'http://localhost:3000', 'http://127.0.0.1:5500', 'http://localhost:5500'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
@@ -35,12 +35,12 @@ mongoose.connect(MONGODB_URI, {
     console.log('✅ MongoDB Atlas Connected Successfully!');
     console.log(`📊 Connected to Database: "${mongoose.connection.db.databaseName}"`);
     
-    // Test if we can access collections
-    mongoose.connection.db.listCollections().toArray((err, collections) => {
+    // Test connection
+    mongoose.connection.db.admin().ping((err, result) => {
         if (err) {
-            console.error('❌ Error listing collections:', err);
+            console.error('❌ Database ping failed:', err);
         } else {
-            console.log('📋 Available collections:', collections.map(c => c.name).join(', ') || 'No collections found');
+            console.log('✅ Database ping successful');
         }
     });
 })
@@ -49,18 +49,7 @@ mongoose.connect(MONGODB_URI, {
 });
 
 // ======================
-// DEBUG: CHECK AUTH ROUTES LOADING
-// ======================
-console.log('🔧 DEBUG: Loading authRoutes...');
-try {
-    const authRoutesModule = require('./routes/authRoutes');
-    console.log('✅ authRoutes loaded successfully');
-} catch (error) {
-    console.error('❌ Error loading authRoutes:', error.message);
-}
-
-// ======================
-// HEALTH CHECK ROUTES (DEFINED BEFORE MAIN API ROUTES)
+// HEALTH CHECK ROUTES
 // ======================
 app.get('/api/health', (req, res) => {
     const dbStatus = mongoose.connection.readyState;
@@ -94,20 +83,10 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/test', async (req, res) => {
     try {
-        // Try to get User model
-        let User, Streak;
-        try {
-            User = mongoose.model('User');
-            Streak = mongoose.model('Streak');
-        } catch (e) {
-            return res.status(500).json({
-                status: 'error',
-                message: 'Database models not initialized',
-                error: e.message
-            });
-        }
+        const User = require('./models/user');
+        const Streak = require('./models/streak');
         
-        const users = await User.find().limit(5);
+        const users = await User.find().limit(5).select('-password');
         const streaks = await Streak.find().limit(5);
         
         res.status(200).json({
@@ -144,7 +123,31 @@ app.get('/api/test', async (req, res) => {
 });
 
 // ======================
-// MAIN API ROUTES (MUST COME AFTER SPECIFIC ROUTES)
+// DEBUG ENDPOINT - CHECK ALL USERS
+// ======================
+app.get('/api/debug/users', async (req, res) => {
+    try {
+        const User = require('./models/user');
+        const users = await User.find().select('-password');
+        
+        res.json({
+            success: true,
+            count: users.length,
+            users: users.map(user => ({
+                _id: user._id,
+                name: user.name,
+                phone: user.phone,
+                gender: user.gender,
+                createdAt: user.createdAt
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ======================
+// MAIN API ROUTES
 // ======================
 app.use('/api', authRoutes);
 
@@ -244,6 +247,9 @@ app.get('/', (req, res) => {
                     <span class="method">GET</span> /api/test - Database test
                 </div>
                 <div class="endpoint">
+                    <span class="method">GET</span> /api/debug/users - Debug users
+                </div>
+                <div class="endpoint">
                     <span class="method">POST</span> /api/register - User registration
                 </div>
                 <div class="endpoint">
@@ -261,6 +267,7 @@ app.get('/', (req, res) => {
                 
                 <div style="margin-top: 30px; text-align: center;">
                     <a href="/api/health" class="test-btn">Check Health</a>
+                    <a href="/api/debug/users" class="test-btn" style="margin-left: 10px;">Debug Users</a>
                 </div>
                 
                 <p style="margin-top: 30px; text-align: center; font-size: 14px; opacity: 0.8;">
@@ -274,7 +281,7 @@ app.get('/', (req, res) => {
 });
 
 // ======================
-// 404 HANDLER (MUST BE ABSOLUTELY LAST!)
+// 404 HANDLER
 // ======================
 app.use('*', (req, res) => {
     res.status(404).json({
@@ -284,11 +291,14 @@ app.use('*', (req, res) => {
             'GET /',
             'GET /api/health',
             'GET /api/test',
+            'GET /api/debug/users',
             'POST /api/register',
             'POST /api/login',
             'POST /api/streak/update',
             'GET /api/streak/:userId',
-            'GET /api/all-data'
+            'GET /api/all-data',
+            'GET /api/user/:userId',
+            'POST /api/reset-password'
         ],
         documentation: 'https://b-fit-backend-jy2e.onrender.com/'
     });
@@ -335,11 +345,14 @@ const server = app.listen(PORT, () => {
     ║  📡 API ENDPOINTS:                                              ║
     ║  • GET  /api/health              Health check                   ║
     ║  • GET  /api/test                Database test                  ║
+    ║  • GET  /api/debug/users         Debug users                    ║
     ║  • POST /api/register            User registration             ║
     ║  • POST /api/login               User login                    ║
     ║  • GET  /api/all-data            Get all user data             ║
     ║  • POST /api/streak/update       Update streak                 ║
-    ║  • GET  /api/streak/:userId      Get user  streak               ║
+    ║  • GET  /api/streak/:userId      Get user streak               ║
+    ║  • GET  /api/user/:userId        Get user by ID                ║
+    ║  • POST /api/reset-password      Reset password                ║
     ║                                                                  ║
     ╚══════════════════════════════════════════════════════════════════╝
     `);

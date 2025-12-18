@@ -15,6 +15,12 @@ router.post('/login', authController.login);
 // Get All Data
 router.get('/all-data', authController.getAllData);
 
+// Get User by ID
+router.get('/user/:userId', authController.getUserById);
+
+// Reset Password
+router.post('/reset-password', authController.resetPassword);
+
 // ===============================
 // STREAK ROUTES
 // ===============================

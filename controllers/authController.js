@@ -1,42 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/user');
+const Streak = require('../models/Streak');
 const bcrypt = require('bcryptjs');
-
-// Get Streak model - SIMPLE VERSION
-let Streak;
-try {
-    Streak = mongoose.model('Streak');
-} catch (error) {
-    // Create Streak model if doesn't exist
-    const streakSchema = new mongoose.Schema({
-        userId: { 
-            type: mongoose.Schema.Types.ObjectId, 
-            required: true,
-            ref: 'User'
-        },
-        currentStreak: { 
-            type: Number, 
-            default: 0 
-        },
-        highestStreak: { 
-            type: Number, 
-            default: 0 
-        },
-        lastWorkoutDate: { 
-            type: Date 
-        },
-        workoutCount: { 
-            type: Number, 
-            default: 0 
-        },
-        createdAt: { 
-            type: Date, 
-            default: Date.now 
-        }
-    });
-    
-    Streak = mongoose.model('Streak', streakSchema);
-}
 
 // ===============================
 // REGISTER USER
@@ -55,8 +20,17 @@ exports.register = async (req, res) => {
             });
         }
         
+        // Clean phone number
+        const cleanedPhone = phone.replace(/\D/g, '');
+        if (cleanedPhone.length !== 10) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Phone number must be 10 digits' 
+            });
+        }
+        
         // Check if user exists
-        const existingUser = await User.findOne({ phone });
+        const existingUser = await User.findOne({ phone: cleanedPhone });
         if (existingUser) {
             return res.status(400).json({ 
                 success: false, 
@@ -70,11 +44,11 @@ exports.register = async (req, res) => {
         
         // Create user
         const user = new User({
-            name,
-            phone,
+            name: name.trim(),
+            phone: cleanedPhone,
             password: hashedPassword,
             gender,
-            age: age || null
+            age: age ? parseInt(age) : null
         });
         
         const savedUser = await user.save();
@@ -143,11 +117,20 @@ exports.login = async (req, res) => {
             });
         }
         
+        // Clean phone number
+        const cleanedPhone = phone.replace(/\D/g, '');
+        if (cleanedPhone.length !== 10) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Phone number must be 10 digits' 
+            });
+        }
+        
         // Find user
-        const user = await User.findOne({ phone });
+        const user = await User.findOne({ phone: cleanedPhone });
         
         if (!user) {
-            console.log('❌ User not found:', phone);
+            console.log('❌ User not found:', cleanedPhone);
             return res.status(401).json({ 
                 success: false, 
                 error: 'Invalid phone number or password' 
@@ -158,7 +141,7 @@ exports.login = async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         
         if (!isPasswordValid) {
-            console.log('❌ Invalid password for user:', phone);
+            console.log('❌ Invalid password for user:', cleanedPhone);
             return res.status(401).json({ 
                 success: false, 
                 error: 'Invalid phone number or password' 
@@ -169,7 +152,7 @@ exports.login = async (req, res) => {
         const streak = await Streak.findOne({ userId: user._id });
         
         console.log('✅ Login successful for user:', user._id);
-        console.log('📊 Streak data:', streak);
+        console.log('📊 Streak data:', streak ? streak : 'No streak found');
         
         res.json({
             success: true,
@@ -215,7 +198,18 @@ exports.updateStreak = async (req, res) => {
             });
         }
         
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'User not found' 
+            });
+        }
+        
         let streak = await Streak.findOne({ userId });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         
         if (!streak) {
             // Create new streak
@@ -230,9 +224,6 @@ exports.updateStreak = async (req, res) => {
             await streak.save();
             console.log('✅ New streak created:', streak);
         } else {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
             if (streak.lastWorkoutDate) {
                 const lastDate = new Date(streak.lastWorkoutDate);
                 lastDate.setHours(0, 0, 0, 0);
@@ -248,7 +239,8 @@ exports.updateStreak = async (req, res) => {
                         streak: {
                             currentStreak: streak.currentStreak,
                             highestStreak: streak.highestStreak,
-                            workoutCount: streak.workoutCount
+                            workoutCount: streak.workoutCount,
+                            lastWorkoutDate: streak.lastWorkoutDate
                         }
                     });
                 }
@@ -303,6 +295,13 @@ exports.getStreak = async (req, res) => {
         const { userId } = req.params;
         
         console.log('🔍 Getting streak for userId:', userId);
+        
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid user ID format' 
+            });
+        }
         
         const streak = await Streak.findOne({ userId });
         
@@ -363,6 +362,89 @@ exports.getAllData = async (req, res) => {
         
     } catch (error) {
         console.error('❌ Test Error:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Server error: ' + error.message
+        });
+    }
+};
+
+// ===============================
+// GET USER BY ID
+// ===============================
+exports.getUserById = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log('🔍 Getting user by ID:', userId);
+        
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid user ID format' 
+            });
+        }
+        
+        const user = await User.findById(userId).select('-password');
+        
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'User not found' 
+            });
+        }
+        
+        res.json({
+            success: true,
+            user: user
+        });
+        
+    } catch (error) {
+        console.error('❌ Get User Error:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Server error: ' + error.message
+        });
+    }
+};
+
+// ===============================
+// RESET PASSWORD
+// ===============================
+exports.resetPassword = async (req, res) => {
+    try {
+        const { phone, newPassword } = req.body;
+        
+        if (!phone || !newPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Phone and new password are required' 
+            });
+        }
+        
+        const cleanedPhone = phone.replace(/\D/g, '');
+        const user = await User.findOne({ phone: cleanedPhone });
+        
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'User not found' 
+            });
+        }
+        
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        
+        user.password = hashedPassword;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Password reset successful'
+        });
+        
+    } catch (error) {
+        console.error('❌ Reset Password Error:', error.message);
         res.status(500).json({ 
             success: false, 
             error: 'Server error: ' + error.message
